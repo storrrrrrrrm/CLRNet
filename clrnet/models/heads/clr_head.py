@@ -113,9 +113,9 @@ class CLRHead(nn.Module):
 
         prior_xs = prior_xs * 2. - 1.
         prior_ys = prior_ys * 2. - 1.
-        grid = torch.cat((prior_xs, prior_ys), dim=-1)
+        grid = torch.cat((prior_xs, prior_ys), dim=-1) #torch.Size([24, 192, 36, 2]) 每个prior取36个采样点.每个采样点有一个x,一个y
         feature = F.grid_sample(batch_features, grid,
-                                align_corners=True).permute(0, 2, 1, 3)
+                                align_corners=True).permute(0, 2, 1, 3) #获取采样点处的feature
 
         feature = feature.reshape(batch_size * num_priors,
                                   self.prior_feat_channels, self.sample_points,
@@ -127,7 +127,7 @@ class CLRHead(nn.Module):
 
         # 2 scores, 1 start_y, 1 start_x, 1 theta, 1 length, 72 coordinates, score[0] = negative prob, score[1] = positive prob
         priors = predictions.new_zeros(
-            (self.num_priors, 2 + 2 + 2 + self.n_offsets), device=predictions.device)
+            (self.num_priors, 2 + 2 + 2 + self.n_offsets), device=predictions.device) #(192,78)
 
         priors[:, 2:5] = predictions.clone()
         priors[:, 6:] = (
@@ -139,7 +139,7 @@ class CLRHead(nn.Module):
                  1, self.n_offsets) * math.pi + 1e-5))) / (self.img_w - 1)
 
         # init priors on feature map
-        priors_on_featmap = priors.clone()[..., 6 + self.sample_x_indexs]
+        priors_on_featmap = priors.clone()[..., 6 + self.sample_x_indexs] #(192,36)
 
         return priors, priors_on_featmap
 
@@ -188,13 +188,17 @@ class CLRHead(nn.Module):
             prediction_list: each layer's prediction result
             seg: segmentation result for auxiliary loss
         '''
+        """
+        x:l2:torch.Size([24, 64, 40, 100]) , l1:torch.Size([24, 64, 20, 50]), l0:torch.Size([24, 64, 10, 25])
+        """
         batch_features = list(x[len(x) - self.refine_layers:])
-        batch_features.reverse()
+        batch_features.reverse() # [l2,l1,l0] --> [l0,l1,l2]
         batch_size = batch_features[-1].shape[0]
 
         if self.training:
-            self.priors, self.priors_on_featmap = self.generate_priors_from_embeddings()
+            self.priors, self.priors_on_featmap = self.generate_priors_from_embeddings() #(192,78) (192,36)
 
+        #将prior复制batch_size次. 即每一张图都有相同的priors.  
         priors, priors_on_featmap = self.priors.repeat(batch_size, 1,
                                                   1), self.priors_on_featmap.repeat(
                                                       batch_size, 1, 1)
@@ -205,13 +209,14 @@ class CLRHead(nn.Module):
         prior_features_stages = []
         for stage in range(self.refine_layers):
             num_priors = priors_on_featmap.shape[1]
-            prior_xs = torch.flip(priors_on_featmap, dims=[2])
+            prior_xs = torch.flip(priors_on_featmap, dims=[2]) # 沿着第二个维度翻转.即第二个维度的36个数倒过来. 比如1,2,3,4变成4,3,2,1
 
             batch_prior_features = self.pool_prior_features(
                 batch_features[stage], num_priors, prior_xs)
             prior_features_stages.append(batch_prior_features)
 
-            fc_features = self.roi_gather(prior_features_stages,
+            #prior_features_stages:论文中的Xp batch_features[stage]:论文中某个layer的Xf
+            fc_features = self.roi_gather(prior_features_stages,  
                                           batch_features[stage], stage)
 
             fc_features = fc_features.view(num_priors, batch_size,
@@ -229,19 +234,20 @@ class CLRHead(nn.Module):
             reg = self.reg_layers(reg_features)
 
             cls_logits = cls_logits.reshape(
-                batch_size, -1, cls_logits.shape[1])  # (B, num_priors, 2)
-            reg = reg.reshape(batch_size, -1, reg.shape[1])
+                batch_size, -1, cls_logits.shape[1])  # (B, num_priors, 2) #前景概率+背景概率
+            reg = reg.reshape(batch_size, -1, reg.shape[1]) #（24，192，76）回归出2(y,x)+2(theta,len)+72(offset)
 
             predictions = priors.clone()
             predictions[:, :, :2] = cls_logits
 
             predictions[:, :,
-                        2:5] += reg[:, :, :3]  # also reg theta angle here
+                        2:5] += reg[:, :, :3]  # also reg theta angle here # y,x,theta
             predictions[:, :, 5] = reg[:, :, 3]  # length
 
             def tran_tensor(t):
                 return t.unsqueeze(2).clone().repeat(1, 1, self.n_offsets)
 
+            #回归出来的是0-1之间,表示比例? 转成具体的图像上的坐标?
             predictions[..., 6:] = (
                 tran_tensor(predictions[..., 3]) * (self.img_w - 1) +
                 ((1 - self.prior_ys.repeat(batch_size, num_priors, 1) -
@@ -255,9 +261,9 @@ class CLRHead(nn.Module):
 
             if stage != self.refine_layers - 1:
                 priors = prediction_lines.detach().clone()
-                priors_on_featmap = priors[..., 6 + self.sample_x_indexs]
+                priors_on_featmap = priors[..., 6 + self.sample_x_indexs] #更新下一个layer的featmap上的prior
 
-        if self.training:
+        if self.training: #训练时,需要额外构建出一个seg loss.辅助训练.
             seg = None
             seg_features = torch.cat([
                 F.interpolate(feature,
@@ -294,7 +300,7 @@ class CLRHead(nn.Module):
             # if the prediction does not start at the bottom of the image,
             # extend its prediction until the x is outside the image
             mask = ~((((lane_xs[:start] >= 0.) & (lane_xs[:start] <= 1.)
-                       ).cpu().numpy()[::-1].cumprod()[::-1]).astype(np.bool))
+                       ).cpu().numpy()[::-1].cumprod()[::-1]).astype(bool))
             lane_xs[end + 1:] = -2
             lane_xs[:start][mask] = -2
             lane_ys = self.prior_ys[lane_xs >= 0]

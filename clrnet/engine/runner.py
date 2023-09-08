@@ -52,11 +52,13 @@ class Runner(object):
         end = time.time()
         max_iter = len(train_loader)
         for i, data in enumerate(train_loader):
+            # print('-----------------------',i)
             if self.recorder.step >= self.cfg.total_iter:
                 break
             date_time = time.time() - end
             self.recorder.step += 1
             data = self.to_cuda(data)
+            # print('-----------',data.is_cuda)
             output = self.net(data)
             self.optimizer.zero_grad()
             loss = output['loss'].sum()

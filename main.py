@@ -13,11 +13,13 @@ from clrnet.datasets import build_dataloader
 
 def main():
     args = parse_args()
-    os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(
-        str(gpu) for gpu in args.gpus)
+    # os.environ["CUDA_VISIBLE_DEVICES"] = ','.join(
+    #     str(gpu) for gpu in args.gpus)
+    os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
     cfg = Config.fromfile(args.config)
-    cfg.gpus = len(args.gpus)
+    # cfg.gpus = len(args.gpus)
+    cfg.gpus = 1
 
     cfg.load_from = args.load_from
     cfg.resume_from = args.resume_from
@@ -41,7 +43,7 @@ def main():
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a detector')
-    parser.add_argument('config', help='train config file path')
+    parser.add_argument('--config', default='configs/clrnet/clr_resnet18_culane.py',help='train config file path')
     parser.add_argument('--work_dirs',
                         type=str,
                         default=None,
@@ -65,6 +67,7 @@ def parse_args():
         action='store_true',
         help='whether to test the checkpoint on testing set')
     parser.add_argument('--gpus', nargs='+', type=int, default='0')
+
     parser.add_argument('--seed', type=int, default=0, help='random seed')
     args = parser.parse_args()
 
@@ -72,4 +75,5 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    input("Press Enter to continue...:")
     main()
