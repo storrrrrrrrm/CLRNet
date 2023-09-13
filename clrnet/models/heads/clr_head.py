@@ -18,7 +18,6 @@ from clrnet.models.utils.dynamic_assign import assign
 from clrnet.models.losses.lineiou_loss import liou_loss
 from ..registry import HEADS
 
-
 @HEADS.register_module
 class CLRHead(nn.Module):
     def __init__(self,
@@ -103,6 +102,8 @@ class CLRHead(nn.Module):
         pool prior feature from feature map.
         Args:
             batch_features (Tensor): Input feature maps, shape: (B, C, H, W) 
+
+            prior_xs : [b,192,36] 192个lane prior,每个prior 36个采样点.
         '''
 
         batch_size = batch_features.shape[0]
@@ -214,6 +215,7 @@ class CLRHead(nn.Module):
             num_priors = priors_on_featmap.shape[1]
             prior_xs = torch.flip(priors_on_featmap, dims=[2]) # 沿着第二个维度翻转.即第二个维度的36个数倒过来. 比如1,2,3,4变成4,3,2,1
 
+            # 从Xf得到Xp
             batch_prior_features = self.pool_prior_features(
                 batch_features[stage], num_priors, prior_xs)
             prior_features_stages.append(batch_prior_features)
