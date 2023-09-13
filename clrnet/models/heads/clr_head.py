@@ -131,12 +131,12 @@ class CLRHead(nn.Module):
 
         priors[:, 2:5] = predictions.clone()
         priors[:, 6:] = (
-            priors[:, 3].unsqueeze(1).clone().repeat(1, self.n_offsets) *
-            (self.img_w - 1) +
+            priors[:, 3].unsqueeze(1).clone().repeat(1, self.n_offsets) * (self.img_w - 1) +
             ((1 - self.prior_ys.repeat(self.num_priors, 1) -
-              priors[:, 2].unsqueeze(1).clone().repeat(1, self.n_offsets)) *
-             self.img_h / torch.tan(priors[:, 4].unsqueeze(1).clone().repeat(
-                 1, self.n_offsets) * math.pi + 1e-5))) / (self.img_w - 1)
+              priors[:, 2].unsqueeze(1).clone().repeat(1, self.n_offsets)) * self.img_h / 
+             torch.tan(priors[:, 4].unsqueeze(1).clone().repeat(1, self.n_offsets) * math.pi + 1e-5)
+                )
+            ) / (self.img_w - 1)
 
         # init priors on feature map
         priors_on_featmap = priors.clone()[..., 6 + self.sample_x_indexs] #(192,36)
