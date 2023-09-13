@@ -43,13 +43,13 @@ class CLRHead(nn.Module):
 
         self.register_buffer(name='sample_x_indexs', tensor=(torch.linspace(
             0, 1, steps=self.sample_points, dtype=torch.float32) *
-                                self.n_strips).long())
+                                self.n_strips).long()) #0-72  36个数
         self.register_buffer(name='prior_feat_ys', tensor=torch.flip(
-            (1 - self.sample_x_indexs.float() / self.n_strips), dims=[-1]))
+            (1 - self.sample_x_indexs.float() / self.n_strips), dims=[-1])) #0-1 36个数
         self.register_buffer(name='prior_ys', tensor=torch.linspace(1,
                                        0,
                                        steps=self.n_offsets,
-                                       dtype=torch.float32))
+                                       dtype=torch.float32)) #1-0 72个数
 
         self.prior_feat_channels = prior_feat_channels
 
@@ -123,7 +123,7 @@ class CLRHead(nn.Module):
         return feature
 
     def generate_priors_from_embeddings(self):
-        predictions = self.prior_embeddings.weight  # (num_prop, 3)
+        predictions = self.prior_embeddings.weight  # (num_prop, 3) #self.prior_embeddings.weight是一直不变的吗?
 
         # 2 scores, 1 start_y, 1 start_x, 1 theta, 1 length, 72 coordinates, score[0] = negative prob, score[1] = positive prob
         priors = predictions.new_zeros(
@@ -144,28 +144,31 @@ class CLRHead(nn.Module):
         return priors, priors_on_featmap
 
     def _init_prior_embeddings(self):
+        """
+        生成多组不同的priors. y,x,theta都归一化0到1之间
+        """
         # [start_y, start_x, theta] -> all normalize
         self.prior_embeddings = nn.Embedding(self.num_priors, 3)
 
-        bottom_priors_nums = self.num_priors * 3 // 4
-        left_priors_nums, _ = self.num_priors // 8, self.num_priors // 8
+        bottom_priors_nums = self.num_priors * 3 // 4   # 144
+        left_priors_nums, _ = self.num_priors // 8, self.num_priors // 8 # 24, 24
 
-        strip_size = 0.5 / (left_priors_nums // 2 - 1)
+        strip_size = 0.5 / (left_priors_nums // 2 - 1)  #
         bottom_strip_size = 1 / (bottom_priors_nums // 4 + 1)
         for i in range(left_priors_nums):
             nn.init.constant_(self.prior_embeddings.weight[i, 0],
                               (i // 2) * strip_size)
-            nn.init.constant_(self.prior_embeddings.weight[i, 1], 0.)
-            nn.init.constant_(self.prior_embeddings.weight[i, 2],
+            nn.init.constant_(self.prior_embeddings.weight[i, 1], 0.) #起点在左边 x = 0
+            nn.init.constant_(self.prior_embeddings.weight[i, 2],  #两种角度
                               0.16 if i % 2 == 0 else 0.32)
 
         for i in range(left_priors_nums,
                        left_priors_nums + bottom_priors_nums):
-            nn.init.constant_(self.prior_embeddings.weight[i, 0], 0.)
+            nn.init.constant_(self.prior_embeddings.weight[i, 0], 0.) #起点在底边 y = 0
             nn.init.constant_(self.prior_embeddings.weight[i, 1],
                               ((i - left_priors_nums) // 4 + 1) *
                               bottom_strip_size)
-            nn.init.constant_(self.prior_embeddings.weight[i, 2],
+            nn.init.constant_(self.prior_embeddings.weight[i, 2], #四种角度
                               0.2 * (i % 4 + 1))
 
         for i in range(left_priors_nums + bottom_priors_nums, self.num_priors):
@@ -173,8 +176,8 @@ class CLRHead(nn.Module):
                 self.prior_embeddings.weight[i, 0],
                 ((i - left_priors_nums - bottom_priors_nums) // 2) *
                 strip_size)
-            nn.init.constant_(self.prior_embeddings.weight[i, 1], 1.)
-            nn.init.constant_(self.prior_embeddings.weight[i, 2],
+            nn.init.constant_(self.prior_embeddings.weight[i, 1], 1.) #起点在右边 x = 1 
+            nn.init.constant_(self.prior_embeddings.weight[i, 2],  #两种角度
                               0.68 if i % 2 == 0 else 0.84)
 
     # forward function here
