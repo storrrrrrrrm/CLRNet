@@ -130,6 +130,9 @@ class CLRHead(nn.Module):
         priors = predictions.new_zeros(
             (self.num_priors, 2 + 2 + 2 + self.n_offsets), device=predictions.device) #(192,78)
 
+        """
+        根据起点,角度,算出在y方向上均匀采样的72个采样点的x坐标。
+        """
         priors[:, 2:5] = predictions.clone()
         priors[:, 6:] = (
             priors[:, 3].unsqueeze(1).clone().repeat(1, self.n_offsets) * (self.img_w - 1) +
@@ -140,7 +143,7 @@ class CLRHead(nn.Module):
             ) / (self.img_w - 1)
 
         # init priors on feature map
-        priors_on_featmap = priors.clone()[..., 6 + self.sample_x_indexs] #(192,36)
+        priors_on_featmap = priors.clone()[..., 6 + self.sample_x_indexs] #(192,36) 取72个采样点中的36个
 
         return priors, priors_on_featmap
 

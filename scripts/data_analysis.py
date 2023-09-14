@@ -23,30 +23,6 @@ def culane_draw_label(label_txt,img_path):
     save_name = 'culane/{}'.format(img_name)
     cv2.imwrite(save_name,vis_img)
 
-# import os
-# def get_file(dirname,sortKey=None):
-#     filelist=[]
-#     for dirpath, dirname, filenames in os.walk(dirname):
-#         img_filenames = [i for i in filenames if i.endswith('.png') or i.endswith('.jpg')]
-
-#         # if sort:
-#         #     filenames = sorted(filenames) #要排序　否则会乱序
-#         for filename in sorted(img_filenames,key=sortKey): 
-#             fullpath = os.path.join(dirpath, filename)
-#             filelist.append(fullpath)
-
-#     return filelist
-
-# def sort_by_time(file_name):
-#     """
-#     文件名是数字｀
-#     """
-#     file_name_num = file_name[:-4]
-#     nums = file_name_num.split('_')
-   
-#     return (int(nums[0]),int(nums[1]))
-
-
 def culane_draw_curve_path():
     rootdir = '/mnt/data/public_datasets/CULane'
     with open('/mnt/data/public_datasets/CULane/list/test_split/test6_curve.txt') as f:
@@ -76,16 +52,24 @@ def curvelane_draw_label(label_txt,img_path):
     
     vis_img = img.copy()
 
+    #
+    # color_list = [(255,0,0),(0,255,0),(0,0,255),(240,230,120),(255,0,255)]
+    color_list = [(255,0,0),(0,255,0),(0,0,255),(240,230,120),(240,230,140),(0,0,255),(0,0,255)]
+
     with open(label_txt) as f:
         label = json.load(f)
-        for line in label['Lines']:
+        for i,line in enumerate(label['Lines']):
             print(line)
+
+            color = color_list[i]
+            if i > 4:
+                continue
 
             for point in line:
                 print(point)
                 point_y = int(float(point['y']))
                 point_x = int(float(point['x']))
-                cv2.circle(vis_img, (point_x, point_y), 10, (255, 0, 0), -1)
+                cv2.circle(vis_img, (point_x, point_y), 10, color, -1)
     
     img_name = img_path.split('/')[-1]
     save_name = 'curvelane/{}'.format(img_name)
@@ -95,11 +79,21 @@ if __name__ == '__main__':
     # culane_draw_label('03570.lines.txt',
     #            '03570.jpg')
 
-    culane_draw_curve_path()
+    # culane_draw_curve_path()
 
     # curvelane_draw_label('/mnt/data/public_datasets/curvelanes/Curvelanes/train/labels/0a5edd29c45fe55eb34407cef5df6902.lines.json',
     #     '/mnt/data/public_datasets/curvelanes/Curvelanes/train/images/0a5edd29c45fe55eb34407cef5df6902.jpg')
 
     # curvelane_draw_label('/mnt/data/public_datasets/curvelanes/Curvelanes/train/labels/1ac6bf9c8e44b54c61268e509d9758d1.lines.json',
     #     '/mnt/data/public_datasets/curvelanes/Curvelanes/train/images/1ac6bf9c8e44b54c61268e509d9758d1.jpg')
+    
+    # curvelane_draw_label('/mnt/data/public_datasets/curvelanes/Curvelanes/valid/labels/0aea8b33b7e189c9ac7bead9bacc31c1.lines.json',
+    #     '/mnt/data/public_datasets/curvelanes/Curvelanes/valid/images/0aea8b33b7e189c9ac7bead9bacc31c1.jpg')
+
+    curvelane_draw_label('/mnt/data/public_datasets/curvelanes/Curvelanes/valid/labels/0bc1d9964335591fc660fbe30a40fcb6.lines.json',
+        '/mnt/data/public_datasets/curvelanes/Curvelanes/valid/images/0bc1d9964335591fc660fbe30a40fcb6.jpg')
+
+    curvelane_draw_label('/mnt/data/public_datasets/curvelanes/Curvelanes/valid/labels/0c1e23dc33e0a498838dba7299de1f83.lines.json',
+        '/mnt/data/public_datasets/curvelanes/Curvelanes/valid/images/0c1e23dc33e0a498838dba7299de1f83.jpg')
+
     
